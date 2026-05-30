@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskAPI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d0f;
+      --surface:   #141417;
+      --border:    #222228;
+      --text:      #e8e8ec;
+      --muted:     #666674;
+      --accent:    #7c6cfc;
+      --accent2:   #fc6c8f;
+      --green:     #4ade80;
+      --yellow:    #fbbf24;
+      --red:       #f87171;
+      --radius:    10px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,13,15,0.85);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--accent); }
+
+    .header-stats {
+      display: flex;
+      gap: 24px;
+    }
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .stat-pill .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+    .dot-pending    { background: var(--yellow); }
+    .dot-progress   { background: var(--accent); }
+    .dot-done       { background: var(--green); }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* ── Page title ── */
+    .page-title {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+    .page-title span {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 36px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ── Add task form ── */
+    .add-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 28px;
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="text"], select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    input[type="text"]::placeholder { color: var(--muted); }
+    input[type="text"]:focus, select:focus { border-color: var(--accent); }
+
+    select option { background: #1a1a1f; }
+
+    .btn {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 10px 18px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: #444; }
+
+    /* ── Filters ── */
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { color: var(--text); border-color: #444; }
+    .filter-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ── Task list ── */
+    #task-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .task-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.15s, transform 0.15s;
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .task-card:hover { border-color: #333340; transform: translateX(2px); }
+    .task-card.done { opacity: 0.5; }
+
+    /* status toggle circle */
+    .status-btn {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .status-btn:hover { border-color: var(--accent); }
+    .task-card.done .status-btn {
+      background: var(--green);
+      border-color: var(--green);
+    }
+    .status-btn::after {
+      content: '';
+      display: none;
+      width: 5px; height: 9px;
+      border: 2px solid #000;
+      border-top: none; border-left: none;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
+    .task-card.done .status-btn::after { display: block; }
+
+    .task-body { min-width: 0; }
+    .task-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .task-card.done .task-title { text-decoration: line-through; color: var(--muted); }
+    .task-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .badge-pending    { background: rgba(251,191,36,0.12);  color: var(--yellow); }
+    .badge-in_progress{ background: rgba(124,108,252,0.15); color: var(--accent); }
+    .badge-done       { background: rgba(74,222,128,0.12);  color: var(--green); }
+    .badge-high       { background: rgba(248,113,113,0.12); color: var(--red); }
+    .badge-medium     { background: rgba(251,191,36,0.12);  color: var(--yellow); }
+    .badge-low        { background: rgba(100,100,120,0.2);  color: var(--muted); }
+
+    /* inline edit */
+    .task-title-input {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--accent);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      outline: none;
+      width: 100%;
+    }
+
+    .task-actions { display: flex; gap: 6px; }
+    .icon-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 4px;
+      border-radius: 4px;
+      font-size: 1rem;
+      transition: color 0.15s, background 0.15s;
+      line-height: 1;
+    }
+    .icon-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .icon-btn.delete:hover { color: var(--red); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 64px 0;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-family: 'DM Mono', monospace; font-size: 0.85rem; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 999;
+      max-width: 320px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.error { border-color: var(--red); color: var(--red); }
+    #toast.success { border-color: var(--green); color: var(--green); }
+
+    /* ── Loading ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-row {
+      display: flex; justify-content: center; padding: 48px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Task<span>API</span></div>
+  <div class="header-stats">
+    <div class="stat-pill"><span class="dot dot-pending"></span><span id="stat-pending">0 pending</span></div>
+    <div class="stat-pill"><span class="dot dot-progress"></span><span id="stat-progress">0 in progress</span></div>
+    <div class="stat-pill"><span class="dot dot-done"></span><span id="stat-done">0 done</span></div>
+  </div>
+</header>
+
+<div class="container">
+  <h1 class="page-title">Your <span>Tasks</span></h1>
+  <p class="page-subtitle">// connected to localhost:3000</p>
+
+  <!-- Add form -->
+  <div class="add-form">
+    <input type="text" id="new-title" placeholder="Add a new task..." />
+    <select id="new-priority">
+      <option value="low">Low</option>
+      <option value="medium" selected>Medium</option>
+      <option value="high">High</option>
+    </select>
+    <select id="new-status">
+      <option value="pending" selected>Pending</option>
+      <option value="in_progress">In Progress</option>
+    </select>
+    <button class="btn btn-primary" onclick="createTask()">+ Add</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <button class="filter-btn active" data-filter="all"     onclick="setFilter(this)">All</button>
+    <button class="filter-btn"        data-filter="pending"     onclick="setFilter(this)">Pending</button>
+    <button class="filter-btn"        data-filter="in_progress" onclick="setFilter(this)">In Progress</button>
+    <button class="filter-btn"        data-filter="done"        onclick="setFilter(this)">Done</button>
+  </div>
+
+  <!-- Task list -->
+  <div id="task-list">
+    <div class="loading-row"><span class="spinner"></span></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const API = 'http://localhost:3000/api';
+  let currentFilter = 'all';
+  let tasks = [];
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 2800);
+  }
+
+  // ── Fetch helpers ──────────────────────────────────────────────────────────
+  async function api(path, opts = {}) {
+    const res = await fetch(API + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || JSON.stringify(data.errors));
+    return data;
+  }
+
+  // ── Load tasks ─────────────────────────────────────────────────────────────
+  async function loadTasks() {
+    try {
+      const url = currentFilter === 'all' ? '/tasks' : `/tasks?status=${currentFilter}`;
+      const result = await api(url);
+      tasks = result.data;
+      renderTasks();
+      updateStats();
+    } catch (e) {
+      toast('Failed to load tasks: ' + e.message, 'error');
+      document.getElementById('task-list').innerHTML =
+        `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+    }
+  }
+
+  async function updateStats() {
+    try {
+      const { data } = await api('/tasks/stats');
+      document.getElementById('stat-pending').textContent  = `${data.pending} pending`;
+      document.getElementById('stat-progress').textContent = `${data.in_progress} in progress`;
+      document.getElementById('stat-done').textContent     = `${data.done} done`;
+    } catch (_) {}
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  function renderTasks() {
+    const list = document.getElementById('task-list');
+    if (!tasks.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <p>no tasks here yet</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = tasks.map(t => `
+      <div class="task-card ${t.status === 'done' ? 'done' : ''}" id="task-${t.id}">
+        <button class="status-btn" onclick="toggleDone(${t.id}, '${t.status}')" title="Toggle done"></button>
+        <div class="task-body">
+          <div class="task-title" id="title-${t.id}" ondblclick="startEdit(${t.id})">${esc(t.title)}</div>
+          <div class="task-meta">
+            <span class="badge badge-${t.status}">${t.status.replace('_', ' ')}</span>
+            <span class="badge badge-${t.priority}">${t.priority}</span>
+          </div>
+        </div>
+        <select class="btn btn-ghost" style="padding:6px 10px; font-size:0.78rem;"
+                onchange="changeStatus(${t.id}, this.value)">
+          <option value="pending"     ${t.status==='pending'?'selected':''}>Pending</option>
+          <option value="in_progress" ${t.status==='in_progress'?'selected':''}>In Progress</option>
+          <option value="done"        ${t.status==='done'?'selected':''}>Done</option>
+        </select>
+        <div class="task-actions">
+          <button class="icon-btn" onclick="startEdit(${t.id})" title="Edit">✏️</button>
+          <button class="icon-btn delete" onclick="deleteTask(${t.id})" title="Delete">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Create ─────────────────────────────────────────────────────────────────
+  async function createTask() {
+    const title    = document.getElementById('new-title').value.trim();
+    const priority = document.getElementById('new-priority').value;
+    const status   = document.getElementById('new-status').value;
+    if (!title) { toast('Title is required', 'error'); return; }
+
+    try {
+      await api('/tasks', { method:'POST', body: JSON.stringify({ title, priority, status }) });
+      document.getElementById('new-title').value = '';
+      toast('Task created ✓');
+      loadTasks();
+    } catch(e) { toast(e.message, 'error'); }
+  }
+
+  // Enter key on input
+  document.getElementById('new-title').addEventListener('keydown', e => {
+    if (e.key === 'Enter') createTask();
+  });
+
+  // ── Toggle done ────────────────────────────────────────────────────────────
+  async function toggleDone(id, currentStatus) {
+    const newStatus = currentStatus === 'done' ? 'pending' : 'done';
+    try {
+      await api(`/tasks/${id}`, { method:'PATCH', body: JSON.stringify({ status: newStatus }) });
+      toast(newStatus === 'done' ? 'Marked as done ✓' : 'Reopened');
+      loadTasks();
+    } catch(e) { toast(e.message, 'error'); }
+  }
+
+  // ── Change status via dropdown ─────────────────────────────────────────────
+  async function changeStatus(id, status) {
+    try {
+      await api(`/tasks/${id}`, { method:'PATCH', body: JSON.stringify({ status }) });
+      toast('Status updated ✓');
+      loadTasks();
+    } catch(e) { toast(e.message, 'error'); }
+  }
+
+  // ── Inline edit ────────────────────────────────────────────────────────────
+  function startEdit(id) {
+    const task  = tasks.find(t => t.id === id);
+    const el    = document.getElementById(`title-${id}`);
+    const input = document.createElement('input');
+    input.className = 'task-title-input';
+    input.value = task.title;
+    el.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const save = async () => {
+      const newTitle = input.value.trim();
+      if (!newTitle || newTitle === task.title) { loadTasks(); return; }
+      try {
+        await api(`/tasks/${id}`, { method:'PATCH', body: JSON.stringify({ title: newTitle }) });
+        toast('Title updated ✓');
+        loadTasks();
+      } catch(e) { toast(e.message, 'error'); loadTasks(); }
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); save(); }
+      if (e.key === 'Escape') loadTasks();
+    });
+  }
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  async function deleteTask(id) {
+    const card = document.getElementById(`task-${id}`);
+    card.style.opacity = '0.3';
+    try {
+      await api(`/tasks/${id}`, { method:'DELETE' });
+      toast('Task deleted');
+      loadTasks();
+    } catch(e) {
+      card.style.opacity = '1';
+      toast(e.message, 'error');
+    }
+  }
+
+  // ── Filter ─────────────────────────────────────────────────────────────────
+  function setFilter(btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    loadTasks();
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  loadTasks();
+</script>
+</body>
+</html>
