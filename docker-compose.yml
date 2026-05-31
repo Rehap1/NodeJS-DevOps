@@ -1,0 +1,35 @@
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: taskdb
+      DB_USER: postgres
+      DB_PASSWORD: secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [appnet]
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: taskdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+    networks: [appnet]
+
+volumes:
+  pgdata:
+
+networks:
+  appnet:
