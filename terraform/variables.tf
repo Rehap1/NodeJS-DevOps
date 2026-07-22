@@ -21,3 +21,9 @@ variable "ecr_image_retention_count" {
   type        = number
   default     = 10
 }
+
+variable "vpc_cidr" {
+  description = "CIDR block assigned to the project VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
