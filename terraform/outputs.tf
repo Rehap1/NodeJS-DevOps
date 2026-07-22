@@ -60,3 +60,14 @@ output "eks_cluster_security_group_id" {
   description = "Security group created by EKS for the cluster"
   value       = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
 }
+
+### EBS 
+output "ebs_csi_role_arn" {
+  description = "IAM role used by the EBS CSI controller"
+  value       = aws_iam_role.ebs_csi.arn
+}
+
+output "ebs_csi_pod_identity_association_id" {
+  description = "ID of the EBS CSI Pod Identity association"
+  value       = aws_eks_pod_identity_association.ebs_csi.association_id
+}
