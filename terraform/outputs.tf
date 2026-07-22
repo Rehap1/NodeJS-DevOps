@@ -38,3 +38,25 @@ output "eks_cluster_name" {
   description = "Name reserved for the future EKS cluster"
   value       = local.cluster_name
 }
+
+
+#eks outputs
+output "eks_cluster_endpoint" {
+  description = "Endpoint of the EKS Kubernetes API server"
+  value       = aws_eks_cluster.main.endpoint
+}
+
+output "eks_cluster_version" {
+  description = "Kubernetes version used by the EKS cluster"
+  value       = aws_eks_cluster.main.version
+}
+
+output "eks_node_group_name" {
+  description = "Name of the EKS managed node group"
+  value       = aws_eks_node_group.main.node_group_name
+}
+
+output "eks_cluster_security_group_id" {
+  description = "Security group created by EKS for the cluster"
+  value       = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+}
