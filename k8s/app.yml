@@ -6,10 +6,11 @@ metadata:
   labels:
     app: nodejs-app
 spec:
+  replicas: 2
   selector:
     matchLabels:
       app: nodejs-app
-  replicas: 2
+
   template:
     metadata:
       labels:
@@ -17,28 +18,79 @@ spec:
     spec:
       containers:
         - name: nodejs-app
-          image: rehab16/nodejs-app:latest
+          image: rehab16/nodejs-app:v1.0.1
+          imagePullPolicy: Always
+
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+
           env:
-            - name: DB_USER
-              value: "postgres"
+            - name: NODE_ENV
+              value: "production"
+
+            - name: PORT
+              value: "3000"
+
             - name: DB_HOST
               value: "postgres-service"
-            - name: DB_DATABASE
+
+            - name: DB_PORT
+              value: "5432"
+
+            - name: DB_NAME
               value: "taskdb"
+
+            - name: DB_USER
+              value: "postgres"
+
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: db-password-secret
                   key: DB_PASSWORD
-            - name: DB_PORT
-              value: "5432"
-          # resources:
-          #   requests:
-          #     memory: "256Mi"
-          #   limits:
-          #     memory: "512Mi"
+
+            - name: DB_POOL_MAX
+              value: "10"
+
+            - name: DB_POOL_IDLE
+              value: "30000"
+
+            - name: DB_POOL_ACQUIRE
+              value: "60000"
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
 ---
 apiVersion: v1
 kind: Service
@@ -48,11 +100,11 @@ metadata:
   labels:
     app: nodejs-app
 spec:
+  type: ClusterIP
   selector:
     app: nodejs-app
-  type: NodePort
   ports:
-    - name: nodejs-app
+    - name: http
       port: 3000
-      targetPort: 3000
-
+      targetPort: http
+      protocol: TCP

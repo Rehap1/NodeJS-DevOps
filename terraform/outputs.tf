@@ -71,3 +71,13 @@ output "ebs_csi_pod_identity_association_id" {
   description = "ID of the EBS CSI Pod Identity association"
   value       = aws_eks_pod_identity_association.ebs_csi.association_id
 }
+
+output "load_balancer_controller_role_arn" {
+  description = "IAM role used by the AWS Load Balancer Controller"
+  value       = aws_iam_role.load_balancer_controller.arn
+}
+
+output "load_balancer_controller_pod_identity_association_id" {
+  description = "Pod Identity association for the AWS Load Balancer Controller"
+  value       = aws_eks_pod_identity_association.load_balancer_controller.association_id
+}
