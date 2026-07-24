@@ -18,8 +18,8 @@ spec:
     spec:
       containers:
         - name: nodejs-app
-          image: rehab16/nodejs-app:v1.0.1
-          imagePullPolicy: Always
+          image: rehab16/nodejs-app:v1.0.2
+          imagePullPolicy: IfNotPresent
 
           ports:
             - name: http
