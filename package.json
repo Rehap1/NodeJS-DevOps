@@ -26,6 +26,7 @@
     "nodemon": "^3.0.1"
   },
   "jest": {
+    "test": "jest --forceExit --detectOpenHandles",
     "testEnvironment": "node",
     "testMatch": ["**/tests/**/*.test.js"]
   }
