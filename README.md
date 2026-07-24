@@ -5,10 +5,12 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-Amazon%20EKS-326CE5?logo=kubernetes&logoColor=white)](https://aws.amazon.com/eks/)
 [![Terraform](https://img.shields.io/badge/Terraform-IaC-844FBA?logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![Jenkins](https://img.shields.io/badge/Jenkins-CI%2FCD-D24939?logo=jenkins&logoColor=white)](https://www.jenkins.io/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?logo=prometheus&logoColor=white)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
 
 TaskAPI is a containerized Node.js REST API deployed to Amazon EKS through a fully automated CI/CD pipeline. A GitHub push triggers Jenkins to test the application, build and scan its Docker image, push it to Amazon ECR, deploy it to Kubernetes, and verify the rollout.
 
-The AWS infrastructure—including the VPC, networking, ECR repository, EKS cluster, and managed node group—is provisioned using Terraform. An AWS Application Load Balancer exposes the API publicly.
+The AWS infrastructure—including the VPC, networking, ECR repository, EKS cluster, and managed node group—is provisioned using Terraform. An AWS Application Load Balancer exposes the API publicly, while Prometheus collects application and cluster metrics that are visualized through Grafana dashboards.
 
 ## Project Highlights
 
@@ -19,6 +21,7 @@ The AWS infrastructure—including the VPC, networking, ECR repository, EKS clus
 - Highly available application deployment across two EKS worker nodes
 - PostgreSQL database with Kubernetes persistent storage
 - Health, readiness, and Prometheus-compatible metrics endpoints
+- Prometheus metrics collection and Grafana monitoring dashboards
 - Public Layer 7 routing through AWS Load Balancer Controller
 - Reproducible AWS infrastructure managed with Terraform
 
@@ -37,6 +40,8 @@ flowchart TD
     ALB --> Service["Kubernetes Service"]
     Service --> Pods["Node.js Pods"]
     Pods --> PostgreSQL["PostgreSQL"]
+    Prometheus["Prometheus"] -->|Scrapes /metrics| Service
+    Grafana["Grafana"] -->|Queries| Prometheus
 ```
 
 ### Request Flow
@@ -56,6 +61,7 @@ Client → AWS ALB → Kubernetes Ingress → ClusterIP Service → Node.js Pods
 | Cloud | AWS EKS, ECR, EC2, VPC, ALB |
 | Infrastructure as Code | Terraform |
 | Orchestration | Kubernetes, AWS Load Balancer Controller |
+| Monitoring and observability | Prometheus, Grafana |
 | Package and deployment tools | npm, Helm, kubectl |
 
 ## CI/CD Pipeline
@@ -71,8 +77,6 @@ Every push to the configured GitHub branch starts the following workflow:
 7. **Deploy** – The EKS Deployment is updated to use the new image.
 8. **Verify** – Jenkins waits for the Kubernetes rollout to complete successfully.
 
-> [!NOTE]
-> Trivy currently runs as a non-blocking security check (`--exit-code 0`). Vulnerabilities remain visible in the Jenkins logs without failing the pipeline. It can be changed to `--exit-code 1` when the project is ready to enforce the security gate.
 
 ## Repository Structure
 
@@ -230,6 +234,99 @@ curl http://localhost:3000/ready
 curl http://localhost:3000/api/tasks
 ```
 
+## Monitoring with Prometheus and Grafana
+
+The application exposes Prometheus-compatible metrics at `/metrics`. Prometheus collects these metrics from the Kubernetes service, and Grafana uses Prometheus as a data source to visualize request rate, error rate, response latency, CPU usage, and memory usage.
+
+The monitoring components run in a dedicated `monitoring` namespace. Prometheus and Grafana are installed as separate lightweight Helm releases to reduce resource consumption on the EKS worker nodes.
+
+Add and update the Helm repositories:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+kubectl create namespace monitoring
+```
+
+Install Prometheus:
+
+```bash
+helm upgrade --install prometheus prometheus-community/prometheus \
+  --namespace monitoring \
+  --set alertmanager.enabled=false \
+  --set prometheus-pushgateway.enabled=false \
+  --set server.persistentVolume.enabled=false \
+  --set server.retention=2d \
+  --set server.resources.requests.cpu=100m \
+  --set server.resources.requests.memory=256Mi \
+  --timeout 20m
+```
+
+Install Grafana:
+
+```bash
+helm upgrade --install grafana grafana/grafana \
+  --namespace monitoring \
+  --set persistence.enabled=false \
+  --set resources.requests.cpu=50m \
+  --set resources.requests.memory=128Mi \
+  --timeout 20m
+```
+
+The Node.js service must include these annotations so Prometheus discovers and scrapes the `/metrics` endpoint:
+
+```yaml
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "3000"
+```
+
+Verify the monitoring workloads:
+
+```bash
+helm list -n monitoring
+kubectl get pods,svc -n monitoring
+```
+
+Access Prometheus locally:
+
+```bash
+kubectl port-forward service/prometheus-server 9090:80 -n monitoring
+```
+
+Open `http://localhost:9090`, then query `up` to confirm that Prometheus is collecting metrics.
+
+Access Grafana:
+
+```bash
+kubectl port-forward service/grafana 3001:80 -n monitoring
+```
+
+Open `http://localhost:3001`. The username is `admin`. Retrieve the generated password with:
+
+```bash
+kubectl get secret grafana \
+  -n monitoring \
+  -o jsonpath='{.data.admin-password}' |
+  base64 --decode
+```
+
+Add Prometheus as a Grafana data source using:
+
+```text
+http://prometheus-server.monitoring.svc.cluster.local
+```
+
+On PowerShell, decode the Grafana password with:
+
+```powershell
+$EncodedPassword = kubectl get secret grafana -n monitoring -o jsonpath="{.data.admin-password}"
+[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($EncodedPassword))
+```
+
 ## Public Access Through AWS ALB
 
 The AWS Load Balancer Controller watches the Kubernetes Ingress and provisions an internet-facing Application Load Balancer.
@@ -301,6 +398,9 @@ kubectl logs -l app=nodejs-app -n nodejs-app --tail=100
 
 # Check the Ingress
 kubectl describe ingress nodejs-app-ingress -n nodejs-app
+
+# Check the monitoring workloads
+kubectl get pods,svc -n monitoring
 ```
 
 On PowerShell, either place commands on one line or use the backtick (`` ` ``) for line continuation instead of `\`.
@@ -311,6 +411,9 @@ Delete Kubernetes resources that provision AWS load balancers before destroying 
 
 ```bash
 kubectl delete ingress nodejs-app-ingress -n nodejs-app
+helm uninstall grafana -n monitoring
+helm uninstall prometheus -n monitoring
+kubectl delete namespace monitoring
 kubectl delete namespace nodejs-app
 ```
 
@@ -325,12 +428,11 @@ Terraform only destroys resources recorded in its state. Manually created resour
 
 ## Future Improvements
 
-- Install Prometheus and Grafana for cluster and application monitoring
-- Add dashboards for request rate, error rate, latency, CPU, and memory
-- Make the Trivy vulnerability scan a blocking security gate
+- Persist Prometheus metrics and Grafana dashboards using EBS-backed volumes
 - Add HTTPS using ACM and an ALB certificate
 - Manage application secrets with AWS Secrets Manager and External Secrets Operator
 - Add automated integration and load tests
 - Configure autoscaling and disruption budgets
 - Add Slack or email notifications for Jenkins build results
+
 
