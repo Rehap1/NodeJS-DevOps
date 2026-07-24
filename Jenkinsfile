@@ -119,22 +119,21 @@ pipeline {
         }
     }
 
-    post {
-        success {
-            echo "Successfully deployed ${IMAGE_URI}:${IMAGE_TAG}"
-        }
-
-        failure {
-            echo 'Pipeline failed. Review the failed stage in the console output.'
-        }
-
-        always {
-            sh '''
-                docker logout ${ECR_REGISTRY} || true
-                docker image rm ${IMAGE_URI}:${IMAGE_TAG} || true
-            '''
-
-            deleteDir()
-        }
+   post {
+    success {
+        sh '''
+            docker logout ${ECR_REGISTRY} || true
+            docker image rm ${IMAGE_URI}:${IMAGE_TAG} || true
+        '''
     }
+
+    failure {
+        echo 'Pipeline failed; retaining the Docker image for troubleshooting.'
+    }
+
+    cleanup {
+        deleteDir()
+    }
+ }
+
 }
